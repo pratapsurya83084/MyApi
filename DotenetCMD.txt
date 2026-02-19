@@ -1,0 +1,5 @@
+
+1.   dotnet ef migrations add InitialCreate   => run for migrate 
+2.  dotnet ef database update   => update table in database , only run this command for update database.
+
+
