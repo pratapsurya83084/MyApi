@@ -1,5 +1,7 @@
 
-1.   dotnet ef migrations add InitialCreate   => run for migrate 
+1.  dotnet ef migrations add InitialCreate   => run for migrate 
 2.  dotnet ef database update   => update table in database , only run this command for update database.
 
 
+1. signup fields - mobile number , password
+2. login fields - same above 

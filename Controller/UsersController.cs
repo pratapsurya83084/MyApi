@@ -2,14 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MyApi.Data;
-using MyApi.DTOs;
+
 using MyApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using MyApi.Services;
 using Microsoft.AspNetCore.Authorization;
-
+using Microsoft.AspNetCore.Identity;
+using MyApi.DTOs;
 
 
 namespace MyApi.Controllers
@@ -20,134 +20,151 @@ namespace MyApi.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IConfiguration _config;
-        private readonly EmailService _emailService;
-        public UserController(AppDbContext context, IConfiguration config, EmailService emailService)
+        // private readonly IConfiguration _configuration;
+        public UserController(AppDbContext context, IConfiguration config)
         {
             _context = context;
             _config = config;
-            _emailService = emailService;
+
         }
 
-        // ============================
-        // SIGNUP + GENERATE OTP
-        // ============================
+
+
         [HttpPost("signup")]
         public async Task<IActionResult> Signup(SignupDto dto)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == dto.Email);
-
-            // CASE 1: User exists AND already verified
-            if (user != null && user.IsVerified)
+            if (!ModelState.IsValid)
             {
-                return Ok(new
+                return BadRequest(ModelState);
+            }
+
+            // Check if mobile already exists
+            var existingUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.MobileNumber == dto.MobileNumber);
+
+            if (existingUser != null)
+            {
+                return BadRequest(new
                 {
-                    message = "you are logged User",
-                    success = true
+                    success = false,
+                    message = "User already exists with this mobile number"
                 });
             }
 
-            var otp = new Random().Next(100000, 999999).ToString();
+            // Check if email already exists
+            var existingEmail = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-            // CASE 2: User exists but NOT verified → regenerate OTP
-            if (user != null)
+            if (existingEmail != null)
             {
-                user.Otp = otp;
-                user.OtpExpireAt = DateTime.UtcNow.AddMinutes(1);
-
-                await _context.SaveChangesAsync();
-            }
-            // CASE 3: User does NOT exist → create user + OTP
-            else
-            {
-                user = new User
+                return BadRequest(new
                 {
-                    Username = dto.Username,
-                    Email = dto.Email,
-                    Otp = otp,
-                    OtpExpireAt = DateTime.UtcNow.AddMinutes(1),
-                    IsVerified = false
-                };
-
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
+                    success = false,
+                    message = "Email already registered"
+                });
             }
 
-            // SEND OTP EMAIL
-            await _emailService.SendOtpEmail(dto.Email, otp);
+            var passwordHasher = new PasswordHasher<User>();
 
-            return Ok(new
+            if (!Enum.TryParse<UserRole>(dto.Role, true, out var parsedRole))
             {
-                message = "OTP sent to email. It will expire in 1 minute.",
-                success = true
-            });
-        }
+                return BadRequest(new { message = "Invalid role value" });
+            }
 
+            var user = new User
+            {
+                MobileNumber = dto.MobileNumber,
+                Username = dto.Username,
+                Email = dto.Email,
+                Role = parsedRole,     // Default role
+                IsApproved = false,       // Needs admin approval
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
 
-        // VERIFY OTP (LOGIN)
-        // ============================
+            // Hash password
+            user.Password = passwordHasher.HashPassword(user, dto.Password);
 
-        [HttpPost("verify-otp")]
-        public async Task<IActionResult> VerifyOtp(OtpVerifyDto dto)
-        {
-            var user = await _context.Users.FindAsync(dto.UserId);
-
-            if (user == null)
-                return BadRequest("User not found");
-
-            if (user.Otp == null || user.OtpExpireAt == null)
-                return BadRequest("OTP not generated");
-
-            if (user.OtpExpireAt < DateTime.UtcNow){
-                    user.IsVerified=false;
-                return BadRequest("OTP expired");
-             }
-            if (user.Otp != dto.Otp)
-                return BadRequest("Invalid OTP");
-
-            // OTP VERIFIED
-            user.IsVerified = true;
-            user.Otp = null;
-            user.OtpExpireAt = null;
-
+            _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // =========================
-            // GENERATE JWT (LOGIN)
-            // =========================
-            var claims = new[]
-            {
-        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new Claim(ClaimTypes.Email, user.Email!)
-    };
-
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!)
-            );
-
-            var token = new JwtSecurityToken(
-                expires: DateTime.UtcNow.AddDays(1),
-                claims: claims,
-                signingCredentials: new SigningCredentials(
-                    key, SecurityAlgorithms.HmacSha256)
-            );
-
-            var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
-
             return Ok(new
             {
-                message = "OTP verified & logged in",
-                token = jwtToken,
-                user = new
-                {
-                    user.Id,
-                    user.Username,
-                    user.Email
-                }
+                success = true,
+                message = "User registered successfully. Waiting for admin approval."
             });
         }
 
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginDto dto)
+    {
+        if (string.IsNullOrEmpty(dto.MobileNumber) || string.IsNullOrEmpty(dto.Password))
+        {
+            return BadRequest(new
+            {
+                message = "Mobile number and password required",
+                success = false
+            });
+        }
 
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.MobileNumber == dto.MobileNumber);
+
+        if (user == null)
+        {
+            return BadRequest(new
+            {
+                message = "Invalid mobile number",
+                success = false
+            });
+        }
+
+        var passwordHasher = new PasswordHasher<User>();
+
+        var result = passwordHasher.VerifyHashedPassword(
+            user,
+            user.Password,
+            dto.Password
+        );
+
+        if (result == PasswordVerificationResult.Failed)
+        {
+            return BadRequest(new
+            {
+                message = "Invalid password",
+                success = false
+            });
+        }
+
+        // 🔥 Correct Role Claim
+        var claims = new[]
+        {
+            new Claim("userId", user.Id.ToString()),
+            new Claim("mobileNo", user.MobileNumber),
+            new Claim(ClaimTypes.Role, user.Role.ToString()), // IMPORTANT
+        };
+
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes("THIS_IS_MY_SECRET_KEY_123456789_ABC")
+        );
+
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: creds
+        );
+
+        var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
+
+        return Ok(new
+        {
+            message = "Login successful",
+            success = true,
+            token = jwtToken
+        });
+    }
 
         [Authorize]
         [HttpGet("get-alluser")]
@@ -157,9 +174,8 @@ namespace MyApi.Controllers
                 .Select(u => new
                 {
                     u.Id,
+                    u.MobileNumber,
                     u.Username,
-                    u.Email,
-                    u.IsVerified,
                     u.CreatedAt
                 })
                 .ToListAsync();
@@ -171,6 +187,7 @@ namespace MyApi.Controllers
                 data = users
             });
         }
+    
     }
 
 }
