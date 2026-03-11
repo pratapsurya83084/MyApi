@@ -97,97 +97,183 @@ namespace MyApi.Controllers
 
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto dto)
-    {
-        if (string.IsNullOrEmpty(dto.MobileNumber) || string.IsNullOrEmpty(dto.Password))
         {
-            return BadRequest(new
+            if (string.IsNullOrEmpty(dto.MobileNumber) || string.IsNullOrEmpty(dto.Password))
             {
-                message = "Mobile number and password required",
-                success = false
-            });
-        }
+                return Ok(new
+                {
+                    message = "Mobile number and password required",
+                    success = false
+                });
+            }
 
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.MobileNumber == dto.MobileNumber);
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.MobileNumber == dto.MobileNumber);
 
-        if (user == null)
-        {
-            return BadRequest(new
+            if (user == null)
             {
-                message = "Invalid mobile number",
-                success = false
-            });
-        }
+                return Ok(new
+                {
+                    message = "Invalid mobile number",
+                    success = false
+                });
+            }
 
-        var passwordHasher = new PasswordHasher<User>();
+            var passwordHasher = new PasswordHasher<User>();
 
-        var result = passwordHasher.VerifyHashedPassword(
-            user,
-            user.Password,
-            dto.Password
-        );
+            var result = passwordHasher.VerifyHashedPassword(
+                user,
+                user.Password,
+                dto.Password
+            );
 
-        if (result == PasswordVerificationResult.Failed)
-        {
-            return BadRequest(new
+            if (result == PasswordVerificationResult.Failed)
             {
-                message = "Invalid password",
-                success = false
-            });
-        }
+                return Ok(new
+                {
+                    message = "Invalid password",
+                    success = false
+                });
+            }
 
-        // 🔥 Correct Role Claim
-        var claims = new[]
-        {
+            // 🔥 Correct Role Claim
+            var claims = new[]
+            {
             new Claim("userId", user.Id.ToString()),
             new Claim("mobileNo", user.MobileNumber),
             new Claim(ClaimTypes.Role, user.Role.ToString()), // IMPORTANT
         };
 
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes("THIS_IS_MY_SECRET_KEY_123456789_ABC")
-        );
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes("THIS_IS_MY_SECRET_KEY_123456789_ABC")
+            );
 
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var token = new JwtSecurityToken(
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: creds
-        );
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(1),
+                signingCredentials: creds
+            );
 
-        var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
+            var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-        return Ok(new
-        {
-            message = "Login successful",
-            success = true,
-            token = jwtToken
-        });
-    }
+            Response.Cookies.Append("token", jwtToken, new CookieOptions
+            {
+                HttpOnly = false,
+                Secure = false,
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddHours(1)
+            });
+
+            return Ok(new
+            {
+                message = "Login successful",
+                success = true,
+
+                token = jwtToken
+            });
+        }
 
         [Authorize]
         [HttpGet("get-alluser")]
         public async Task<IActionResult> GetAllUsers()
         {
-            var users = await _context.Users
-                .Select(u => new
+
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Admin")
+            {
+                return Ok(new
                 {
-                    u.Id,
-                    u.MobileNumber,
-                    u.Username,
-                    u.CreatedAt
-                })
-                .ToListAsync();
+                    message = "Unauthorized access , please login as admin",
+                    success = false
+
+                });
+            }
+
+            var users = await _context.Users
+              .Select(u => new
+              {
+                  u.Id,
+                  u.Username,
+                  u.MobileNumber,
+                  u.Email,
+                  u.Role,
+                  u.IsActive,
+                  u.IsApproved,
+                  u.CreatedAt
+              })
+              .ToListAsync();
 
             return Ok(new
             {
+                message = "Retrieve All Users",
                 success = true,
                 count = users.Count,
                 data = users
             });
+
+
+
+
+
+
+
         }
-    
+
+
+
+        // get farmer list only check role If Farmer then return those row only
+        [HttpGet("get-farmers")]
+        public async Task<IActionResult> GetFarmers()
+        {
+            var farmers = await _context.Users
+                            .Where(u => u.Role == UserRole.Farmer)
+                            .ToListAsync();
+
+            return Ok(farmers);
+        }
+
+        // get farmer list only check role If provider then return those row only
+        [HttpGet("get-provider")]
+        public async Task<IActionResult> GetProviders()
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Admin")
+            {
+                return Ok(new
+                {
+                    message = "Unauthorized Access, Please login as admin",
+                    success = false
+                });
+            }
+            var providers = await _context.Users
+                            .Where(u => u.Role == UserRole.Provider)
+                            .ToListAsync();
+
+            return Ok(new
+            {
+                providers,
+                success=true,
+                message="fetched provider successfully"
+            });
+        }
+
+        //get profile by userId
+        [Authorize]
+        [HttpGet("get-profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            var UserProfile = await _context.Users
+                            .Where(u => u.Id.ToString() == userId)
+                            .ToListAsync();
+
+            return Ok(UserProfile);
+        }
+
     }
 
 }

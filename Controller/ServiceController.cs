@@ -1,9 +1,7 @@
 
-
-
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MyApi.Data;
 using System.Security.Claims;
 
@@ -43,17 +41,17 @@ namespace MyApi.Controllers
             }
 
 
-           
+
             var userId = User.FindFirst("userId")?.Value;
             var mobile = User.FindFirst("mobileNo")?.Value;
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-        
+
             if (role != "Provider")
             {
                 return Ok(new
                 {
-                    Role=role, 
+                    Role = role,
                     message = "Only Provider can Create Service",
                     success = false
                 });
@@ -75,8 +73,8 @@ namespace MyApi.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new
-            { 
-                Role=role,
+            {
+                Role = role,
                 message = "Service added successfully",
                 success = true,
                 data = service
@@ -85,7 +83,140 @@ namespace MyApi.Controllers
 
         }
 
+        //get provider specific services 
+        //check role and userid exists in service table 
+
+        [Authorize]
+        [HttpGet("get-provider-specific-service")]
+        public async Task<IActionResult> GetServiceProviderSpecific()
+        {
+            var userId = User.FindFirst("userId")?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Provider")
+            {
+                return Ok(new
+                {
+                    message = "Only Provider can view their services",
+                    success = false
+                });
+            }
+
+
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new
+                {
+                    message = "Invalid token",
+                    success = false
+                });
+            }
+
+            var services = await _context.Services
+                .Where(s => s.ProviderId.ToString() == userId)
+                .ToListAsync();
+
+            if (services == null || services.Count == 0)
+            {
+                return Ok(new
+                {
+                    message = "No services found for this provider",
+                    success = false
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Services fetched successfully",
+                success = true,
+                data = services
+            });
+
+
+        }
+
+        //get user provider specific service -only admin can view
+
+
+        [HttpGet("provider/{userId}")]
+        public async Task<IActionResult> GetServiceByAdminProviderSpecific(int userId)
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Admin")
+            {
+                return Ok(new
+                {
+                    message = "Only Admin can view provider services",
+                    success = false
+                });
+            }
+
+            var user = await _context.Users.FindAsync(userId);
+
+            if (user == null)
+            {
+                return NotFound(new
+                {
+                    message = "User not found",
+                    success = false
+                });
+            }
+
+            var services = await _context.Services
+                            .Where(s => s.ProviderId == userId)
+                            .ToListAsync();
+
+            if (services.Count == 0)
+            {
+                return Ok(new
+                {
+                    message = "No services found for this provider",
+                    success = false
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Services fetched successfully",
+                success = true,
+                data = services
+            });
+        }
+
+
+
+        // get all services - if role is admin then it is accessible
+        [Authorize]
+        [HttpGet("getallServices")]
+        public async Task<IActionResult> GetAllSerivices()
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Admin")
+            {
+                return Ok(new
+                {
+                    message = "Unauthorized Access, Please login as admin",
+                    success = false
+                });
+            }
+
+            // Admin logic
+            var services = await _context.Services.ToListAsync();
+
+            return Ok(new
+            {
+                success = true,
+                data = services
+            });
+        }
+
+
     }
+
+
 
 
 

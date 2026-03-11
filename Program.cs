@@ -7,6 +7,21 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
+});
+
+
+
 // DATABASE
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -52,10 +67,14 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+app.UseRouting();
+app.UseCors("AllowFrontend");
 
 // ORDER MATTERS
 app.UseAuthentication();
 app.UseAuthorization();
+
+
 
 // Optional root endpoints
 app.MapGet("/", () => "Hello from .NET Server!");

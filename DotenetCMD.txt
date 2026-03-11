@@ -3,5 +3,34 @@
 2.  dotnet ef database update   => update table in database , only run this command for update database.
 
 
-1. signup fields - mobile number , password
-2. login fields - same above 
+1. signup fields - mobile number , password - done
+2. login fields - same above  - done
+
+//farmer 
+1.farmer can  browse service.
+2.farmer can  book service  - done.
+3.farmer can view own booking services - done.
+
+//3.farmer can view only those services which are approved by admin
+
+
+//provider
+3.provider - provider only can create service - done 
+4.provider specific service can view only  - done
+5.provider can manage booking - accept ,reject , update booking of user
+
+
+
+//admin
+1.can see users - 
+          1.farmer list - bookings button. - done
+          2.provider list - view Service button.  - only admin can view after (click provider-services button) ,  admin approve is IsActive  true then show  else false(not show on ui for farmer).
+-----------------//-------------------//----------------      
+2.provider service - get user provider specific service -done
+
+3.admin can view browsed services.
+4.admin can manage Bookings - delete,update.
+5.admin can manages Users   - delete , update. 
+6.admin can add categories for provider to add service with categories.
+7.admin - can add advertisement on web page.
+8.admin can view system logs.
