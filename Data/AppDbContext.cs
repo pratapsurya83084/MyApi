@@ -11,7 +11,7 @@ namespace MyApi.Data
         }
 
         public DbSet<User> Users { get; set; }
-         public DbSet<Service> Services { get; set; }
+        public DbSet<Service> Services { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<Booking> Bookings { get; set; }
         public DbSet<Advertisement> Advertisements { get; set; }
@@ -34,6 +34,13 @@ namespace MyApi.Data
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Email)
                 .IsUnique();
+
+    //         modelBuilder.Entity<Service>()
+    // .HasOne(s => s.Category)
+    // .WithMany(c => c.Services)
+    // .HasForeignKey(s => s.CategoryId)
+    // .OnDelete(DeleteBehavior.Cascade);
+    
         }
 
     }

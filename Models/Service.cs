@@ -18,7 +18,7 @@ namespace MyApi.Models
         public string Description { get; set; } = null!;
 
         [Required]
-        public int CategoryId { get; set; }
+        public string Category { get; set; } = null!;
 
         [Required]
         public int ProviderId { get; set; }
@@ -31,10 +31,10 @@ namespace MyApi.Models
         [MaxLength(100)]
         public string District { get; set; } = null!;
 
-        [MaxLength(250)]
-        public string? ImageUrl { get; set; }
 
-        public bool IsActive { get; set; } = true;
+
+        public bool IsActive { get; set; }
+        // public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

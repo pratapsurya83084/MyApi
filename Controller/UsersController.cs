@@ -256,8 +256,8 @@ namespace MyApi.Controllers
             return Ok(new
             {
                 providers,
-                success=true,
-                message="fetched provider successfully"
+                success = true,
+                message = "fetched provider successfully"
             });
         }
 
@@ -273,6 +273,46 @@ namespace MyApi.Controllers
 
             return Ok(UserProfile);
         }
+
+
+        //user deletion by admin
+        [Authorize]
+        [HttpDelete("deleteUser/{userId}")]
+        public async Task<IActionResult> DeleteUser(int userId)
+        {
+            // check role
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Admin")
+            {
+                return Ok(new
+                {
+                    success = false,
+                    message = "Unauthorized Access, Please Login as Admin"
+                });
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                return Ok(new
+                {
+                    success = false,
+                    message = "User Not Found"
+                });
+            }
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                success = true,
+                message = "User Deleted Successfully"
+            });
+        }
+
 
     }
 

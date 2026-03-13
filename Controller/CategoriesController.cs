@@ -31,7 +31,7 @@ namespace MyApi.Controllers
             {
                 return Ok(new
                 {
-                    message = "Only Admin can add categories",
+                   message = "Unauthorized Access , Please Login as Admin",
                     success = false
                 });
             }
@@ -58,16 +58,7 @@ namespace MyApi.Controllers
         [HttpGet("getCtegories")]
         public async Task<IActionResult> GetAllCategories()
         {
-            var role = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            if (role != "Admin")
-            {
-                return Ok(new
-                {
-                    message = "Only Admin can add categories",
-                    success = false
-                });
-            }
+           
             var category = await _context.Categories.ToListAsync();
             return Ok(new
             {
@@ -89,7 +80,7 @@ namespace MyApi.Controllers
             {
                 return Ok(new
                 {
-                    message = "Only Admin can delete categories",
+                    message = "Unauthorized Access , Please Login as Admin",
                     success = false
                 });
             }
@@ -128,7 +119,7 @@ namespace MyApi.Controllers
             {
                 return Ok(new
                 {
-                    message = "Only Admin can delete categories",
+                     message = "Unauthorized Access , Please Login as Admin",
                     success = false
                 });
             }

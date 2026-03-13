@@ -82,13 +82,12 @@ namespace MyApi.Controllers
         }
 
         //farmer can view booked services  - userid get  and check in Booking table CustomerId filed compare with userId and return those rows
+        [Authorize]
         [HttpGet("farmer-bookings")]
         public async Task<IActionResult> GetFarmerBookings()
         {
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
             var userId = User.FindFirst("userId")?.Value;
-
-
 
             if (role != "Farmer")
             {
@@ -99,9 +98,32 @@ namespace MyApi.Controllers
                 });
             }
 
-            var bookings = await _context.Bookings
-                            .Where(b => b.CustomerId.ToString() == userId)
-                            .ToListAsync();
+            var bookings = await (from b in _context.Bookings
+                                  join s in _context.Services
+                                      on b.ServiceId equals s.Id
+                                  join u in _context.Users
+                                      on b.CustomerId equals u.Id
+                                  where b.CustomerId.ToString() == userId
+                                  select new
+                                  {
+                                      BookingId = b.Id,
+                                      BookingStatus = b.Status,
+                                      Address = b.Address,
+                                      Notes = b.Notes,
+                                      BookingDate = b.BookingDate,
+
+                                      // Service Details
+                                      ServiceId = s.Id,
+                                      ServiceTitle = s.Title,
+                                      ServiceDescription = s.Description,
+                                      Price = s.Price,
+
+                                      // User Details
+                                      CustomerId = u.Id,
+                                      CustomerName = u.Username,
+                                      CustomerEmail = u.Email,
+                                      CustomerMobile = u.MobileNumber
+                                  }).ToListAsync();
 
             return Ok(new
             {
@@ -110,7 +132,6 @@ namespace MyApi.Controllers
                 data = bookings
             });
         }
-
 
         //only admin can delete booking or update
         [HttpPut("admin/update-booking/{id}")]
@@ -159,9 +180,9 @@ namespace MyApi.Controllers
 
             if (role != "Admin")
             {
-                return Unauthorized(new
+                return Ok(new
                 {
-                    message = "Only Admin can delete bookings",
+                    message = "Unauthorized Access , Please Login as Admin",
                     success = false
                 });
             }
@@ -191,33 +212,107 @@ namespace MyApi.Controllers
 
 
         //getallbookings for admin view
-        [Authorize]
-        [HttpGet("getallbookings")]
-        public async Task<IActionResult> Getallbookings()
+        // [Authorize]
+        // [HttpGet("getallbookings")]
+        // public async Task<IActionResult> Getallbookings()
+        // {
+        //     var userId = User.FindFirst("userId")?.Value;
+        //     var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+        //     if (role != "Admin")
+        //     {
+        //         return Ok(new
+        //         {
+        //             message = "Unauthorized Access , Please Login as Admin",
+        //             success = false
+        //         });
+        //     }
+
+        //     //find customerId in users and find serviceId in services
+        //     // var booking = await _context.Bookings.ToListAsync();
+        //     var booking = await (from b in _context.Bookings
+        //                          join u in _context.Users
+        //                             on b.CustomerId equals u.Id
+        //                          join s in _context.Services
+        //                             on b.ServiceId equals s.Id
+        //                          select new
+        //                          {
+        //                              BookingId = b.Id,
+        //                              CustomerId = b.CustomerId,
+        //                              date = b.BookingDate,
+        //                              address = b.Address,
+        //                              notes = b.Notes,
+        //                              status = b.Status,
+        //                              title = s.Title,
+        //                              description = s.Description,
+        //                              UserName = u.Username,
+        //                              mobileNumber = u.MobileNumber,
+        //                              UserEmail = u.Email
+        //                          }).ToListAsync();
+
+
+        //     return Ok(new
+        //     {
+        //         data = booking,
+        //         message = "All bookings fetches successfully",
+        //         success = true
+        //     });
+
+        // }
+
+
+
+
+[Authorize]
+[HttpGet("getallbookings")]
+public async Task<IActionResult> Getallbookings()
+{
+    var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+    if (role != "Admin")
+    {
+        return Ok(new
         {
+            message = "Unauthorized Access , Please Login as Admin",
+            success = false
+        });
+    }
 
-            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+    var booking = await (
+        from b in _context.Bookings
+        join u in _context.Users
+            on b.CustomerId equals u.Id into userJoin
+        from u in userJoin.DefaultIfEmpty()
 
-            if (role != "Admin")
-            {
-                return Ok(new
-                {
-                    message = "Only Admin can delete bookings",
-                    success = false
-                });
-            }
+        join s in _context.Services
+            on b.ServiceId equals s.Id into serviceJoin
+        from s in serviceJoin.DefaultIfEmpty()
 
-            var booking = await _context.Bookings.ToListAsync();
+        select new
+        {
+            BookingId = b.Id,
+            CustomerId = b.CustomerId,
+            date = b.BookingDate,
+            address = b.Address,
+            notes = b.Notes,
+            status = b.Status,
 
-            return Ok(new
-            {
-                data = booking,
-                message = "All bookings fetches successfully",
-                success = true
-            });
+            title = s != null ? s.Title : null,
+            description = s != null ? s.Description : null,
 
+            UserName = u != null ? u.Username : null,
+            mobileNumber = u != null ? u.MobileNumber : null,
+            UserEmail = u != null ? u.Email : null
         }
+    ).ToListAsync();
 
+    return Ok(new
+    {
+        data = booking,
+        message = "All bookings fetched successfully",
+        success = true
+    });
+}
 
     }
 }

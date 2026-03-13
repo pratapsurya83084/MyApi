@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyApi.Data;
+using MyApi.Models;
 using System.Security.Claims;
 
 
@@ -61,11 +62,10 @@ namespace MyApi.Controllers
             {
                 Title = dto.title,
                 Description = dto.description,
-                CategoryId = dto.categoryId,
-                ProviderId = dto.providerId,
+                Category = dto.category,
+                ProviderId = int.Parse(userId),
                 Price = dto.price,
                 District = dto.district,
-                ImageUrl = dto.imageUrl,
                 IsActive = dto.IsActive   // default false if not sent
             };
 
@@ -194,24 +194,131 @@ namespace MyApi.Controllers
         {
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            if (role != "Admin")
-            {
-                return Ok(new
-                {
-                    message = "Unauthorized Access, Please login as admin",
-                    success = false
-                });
-            }
+            // if (role != "Admin")
+            // {
+            //     return Ok(new
+            //     {
+            //         message = "Unauthorized Access, Please login as admin",
+            //         success = false
+            //     });
+            // }
 
             // Admin logic
-            var services = await _context.Services.ToListAsync();
+            // var services = await _context.Services.ToListAsync();
+
+            var services = await (
+         from s in _context.Services
+         join p in _context.Users
+         on s.ProviderId equals p.Id
+         select new
+         {
+             s.Id,
+             s.Title,
+             s.Description,
+             s.Category,
+             s.Price,
+             s.District,
+             s.IsActive,
+             s.CreatedAt,
+             ProviderId = p.Id,
+             ProviderName = p.Username
+         }
+     ).ToListAsync();
 
             return Ok(new
             {
                 success = true,
                 data = services
             });
+
         }
+
+
+
+        //admin can activate service if isActive is true then make it false ,else true
+        [Authorize]
+        [HttpPatch("ServicestatusUpdateByAdmin/{sid}")]
+        public async Task<IActionResult> UpdateStatusByAdmin(int sid)
+        {
+            // check role
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Admin")
+            {
+                return Ok(new
+                {
+                    message = "Unauthorized Access ,Please Login as Admin",
+                    success = false
+                });
+            }
+
+            // find service by sid
+            var service = await _context.Services
+                            .FirstOrDefaultAsync(s => s.Id == sid);
+
+            if (service == null)
+            {
+                return Ok(new
+                {
+                    message = "Service Not Found",
+                    success = false
+                });
+            }
+
+            // update status
+            service.IsActive = !service.IsActive;
+
+            // _context.Services.Update(service);
+
+            await _context.SaveChangesAsync();
+
+
+            return Ok(new
+            {
+                message = "Service Status Updated Successfully",
+                success = true
+            });
+        }
+
+
+
+        [Authorize]
+        [HttpDelete("deleteService/{id}")]
+        public async Task<IActionResult> DeleteService(int id)
+        {
+            // check role
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Admin")
+            {
+                return Ok(new
+                {
+                    message = "Unauthorized Access, Please Login as Admin",
+                    success = false
+                });
+            }
+
+            var service = await _context.Services.FirstOrDefaultAsync(s => s.Id == id);
+
+            if (service == null)
+            {
+                return Ok(new
+                {
+                    message = "Service Not Found",
+                    success = false
+                });
+            }
+
+            _context.Services.Remove(service);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Service Deleted Successfully",
+                success = true
+            });
+        }
+
 
 
     }
