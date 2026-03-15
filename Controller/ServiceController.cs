@@ -321,12 +321,33 @@ namespace MyApi.Controllers
 
 
 
+        // get-single-service/30  - id wise for singlepage service
+
+        [Authorize]
+        [HttpGet("get-single-service/{id}")]
+        public async Task<IActionResult> GetSingleService(int id)
+        {
+            var service = await _context.Services.FindAsync(id);
+
+            if (service == null)
+            {
+                return Ok(new
+                {
+                    success = false,
+                    message = "Service not found"
+                });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = "Service fetched successfully",
+                data = service
+            });
+        }
+
+
     }
-
-
-
-
-
 
 
 

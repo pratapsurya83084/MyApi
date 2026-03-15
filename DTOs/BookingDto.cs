@@ -12,8 +12,8 @@ namespace MyApi.DTOs
         [Required]
         public int CustomerId { get; set; }
 
-        public DateTime? BookingDate { get; set; }
-
+        // public DateTime BookingDate { get; set; }
+        public DateTime BookingDate { get; set; }
         public BookingStatus Status { get; set; } = BookingStatus.Pending;
 
         [Required]

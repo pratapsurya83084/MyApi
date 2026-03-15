@@ -136,7 +136,7 @@ namespace MyApi.Controllers
                 });
             }
 
-            // 🔥 Correct Role Claim
+            // Correct Role Claim
             var claims = new[]
             {
             new Claim("userId", user.Id.ToString()),
@@ -161,7 +161,7 @@ namespace MyApi.Controllers
             Response.Cookies.Append("token", jwtToken, new CookieOptions
             {
                 HttpOnly = false,
-                Secure = false,
+                Secure = true,
                 SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddHours(1)
             });

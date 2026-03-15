@@ -209,8 +209,6 @@ namespace MyApi.Controllers
         }
 
 
-
-
         //getallbookings for admin view
         // [Authorize]
         // [HttpGet("getallbookings")]
@@ -260,60 +258,173 @@ namespace MyApi.Controllers
 
         // }
 
-
-
-
-[Authorize]
-[HttpGet("getallbookings")]
-public async Task<IActionResult> Getallbookings()
-{
-    var role = User.FindFirst(ClaimTypes.Role)?.Value;
-
-    if (role != "Admin")
-    {
-        return Ok(new
+        [Authorize]
+        [HttpGet("getallbookings")]
+        public async Task<IActionResult> Getallbookings()
         {
-            message = "Unauthorized Access , Please Login as Admin",
-            success = false
-        });
-    }
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-    var booking = await (
-        from b in _context.Bookings
-        join u in _context.Users
-            on b.CustomerId equals u.Id into userJoin
-        from u in userJoin.DefaultIfEmpty()
+            if (role != "Admin")
+            {
+                return Ok(new
+                {
+                    message = "Unauthorized Access , Please Login as Admin",
+                    success = false
+                });
+            }
 
-        join s in _context.Services
-            on b.ServiceId equals s.Id into serviceJoin
-        from s in serviceJoin.DefaultIfEmpty()
+            var booking = await (
+                from b in _context.Bookings
+                join u in _context.Users
+                    on b.CustomerId equals u.Id into userJoin
+                from u in userJoin.DefaultIfEmpty()
 
-        select new
-        {
-            BookingId = b.Id,
-            CustomerId = b.CustomerId,
-            date = b.BookingDate,
-            address = b.Address,
-            notes = b.Notes,
-            status = b.Status,
+                join s in _context.Services
+                    on b.ServiceId equals s.Id into serviceJoin
+                from s in serviceJoin.DefaultIfEmpty()
 
-            title = s != null ? s.Title : null,
-            description = s != null ? s.Description : null,
+                select new
+                {
+                    BookingId = b.Id,
+                    CustomerId = b.CustomerId,
+                    date = b.BookingDate,
+                    address = b.Address,
+                    notes = b.Notes,
+                    status = b.Status,
 
-            UserName = u != null ? u.Username : null,
-            mobileNumber = u != null ? u.MobileNumber : null,
-            UserEmail = u != null ? u.Email : null
+                    title = s != null ? s.Title : null,
+                    description = s != null ? s.Description : null,
+
+                    UserName = u != null ? u.Username : null,
+                    mobileNumber = u != null ? u.MobileNumber : null,
+                    UserEmail = u != null ? u.Email : null
+                }
+            ).ToListAsync();
+
+            return Ok(new
+            {
+                data = booking,
+                message = "All bookings fetched successfully",
+                success = true
+            });
         }
-    ).ToListAsync();
 
-    return Ok(new
+
+        // get  bookings for provider 
+        [Authorize]
+        [HttpGet("get-user-requested-services-for-provider-Specific")]
+        public async Task<IActionResult> GetAllProviderSpecificUserRequest()
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            var providerId = User.FindFirst("userId")?.Value;
+
+            if (role != "Provider")
+            {
+                return Ok(new
+                {
+                    message = "Unauthorized access, please login as Provider",
+                    success = false
+                });
+            }
+
+            int pid = int.Parse(providerId);
+
+            // var bookings = await (
+            //     from b in _context.Bookings
+            //     join s in _context.Services on b.ServiceId equals s.Id
+
+
+            //     where b.ServiceId== s.Id  &&   s.ProviderId == pid  
+            //     select new
+            //     {
+            //         bookingId = b.Id,//return
+            //         serviceId = b.ServiceId,//ret
+            //         serviceTitle = s.Title,//show
+            //         price = s.Price, // show
+            //         bookingDate = b.BookingDate,//show
+            //         BookingStatus = b.Status,
+            //         customerId = b.CustomerId, // ret but not show
+            //         customerAddress = b.Address, // show
+            //         providerId = s.ProviderId
+            //     }
+            // ).ToListAsync();
+
+            var bookings = await (
+    from b in _context.Bookings
+    join s in _context.Services on b.ServiceId equals s.Id
+    join u in _context.Users on b.CustomerId equals u.Id
+    where s.ProviderId == pid
+    select new
     {
-        data = booking,
-        message = "All bookings fetched successfully",
-        success = true
-    });
-}
+        bookingId = b.Id,
+        serviceId = b.ServiceId,
+        serviceTitle = s.Title,
+        price = s.Price,
+        bookingDate = b.BookingDate,
+        bookingStatus = b.Status,
 
+        customerId = b.CustomerId,
+        customerAddress = b.Address,
+
+        providerId = s.ProviderId,
+
+        farmerMobile = u.MobileNumber,
+        farmerName = u.Username
+    }
+).ToListAsync();
+
+            return Ok(new
+            {
+                success = true,
+                message = "Provider booking requests fetched successfully",
+                data = bookings //3 result expected object
+            });
+        }
+
+
+
+        // check booking id in booking table exist or not if exists then change status confirm when click the confir
+
+        [Authorize]
+        [HttpPatch("updatebookingStatusbyid/{bookingid}")]
+        public async Task<IActionResult> UpdateBookingStatus(int bookingid, [FromQuery] BookingStatus status)
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role != "Provider")
+            {
+                return Ok(new
+                {
+                    message = "Unauthorized User, Please Login as Provider",
+                    success = false
+                });
+            }
+
+            var booking = await _context.Bookings.FindAsync(bookingid);
+
+            if (booking == null)
+            {
+                return NotFound(new
+                {
+                    message = "Booking not found",
+                    success = false
+                });
+            }
+
+            // update status
+            booking.Status = status;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Booking status updated successfully",
+                success = true,
+                data = booking
+            });
+        }
+   
+   
     }
 }
 

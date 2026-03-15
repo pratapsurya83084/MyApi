@@ -8,6 +8,7 @@ namespace MyApi.Models
     {
         Pending,
         Confirmed,
+        Inprogress,
         Completed,
         Cancelled
     }
