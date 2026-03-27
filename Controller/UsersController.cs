@@ -137,6 +137,77 @@ namespace MyApi.Controllers
             }
 
             // Correct Role Claim
+        //     var claims = new[]
+        //     {
+        //     new Claim("userId", user.Id.ToString()),
+        //     new Claim("mobileNo", user.MobileNumber),
+        //     new Claim(ClaimTypes.Role, user.Role.ToString()), // IMPORTANT
+        // };
+
+            // var key = new SymmetricSecurityKey(
+            //     Encoding.UTF8.GetBytes("THIS_IS_MY_SECRET_KEY_123456789_ABC")
+            // );
+
+            // var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            // var token = new JwtSecurityToken(
+            //     claims: claims,
+            //     expires: DateTime.UtcNow.AddHours(1),
+            //     signingCredentials: creds
+            // );
+
+            // var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
+
+            // Response.Cookies.Append("token", jwtToken, new CookieOptions
+            // {
+            //     HttpOnly = false,
+            //     Secure = true,
+            //     SameSite = SameSiteMode.None,
+            //     Expires = DateTime.UtcNow.AddHours(1)
+            // });
+
+            return Ok(new
+            {
+                message = "Login successful",
+                success = true,
+
+                // token = jwtToken
+            });
+        }
+
+
+      // find otp and if found in db then generate token and and return user ,token
+      
+        [HttpPost("verify-otp")]
+      public async Task<IActionResult> OtpVerfiying(OtpDto dto)
+        {
+            //tke mobile number from ui and find in 
+             if (string.IsNullOrEmpty(dto.MobileNumber))
+            {
+                return Ok(new
+                {
+                    message = "Mobile number and password required",
+                    success = false
+                });
+            }
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.MobileNumber == dto.MobileNumber);
+
+            if (user == null)
+            {
+                return Ok(new
+                {
+                    message = "Invalid mobile number",
+                    success = false
+                });
+            }
+
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes("THIS_IS_MY_SECRET_KEY_123456789_ABC")
+            );
+              // Correct Role Claim
             var claims = new[]
             {
             new Claim("userId", user.Id.ToString()),
@@ -144,11 +215,7 @@ namespace MyApi.Controllers
             new Claim(ClaimTypes.Role, user.Role.ToString()), // IMPORTANT
         };
 
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("THIS_IS_MY_SECRET_KEY_123456789_ABC")
-            );
-
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+              var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
                 claims: claims,
@@ -170,10 +237,13 @@ namespace MyApi.Controllers
             {
                 message = "Login successful",
                 success = true,
-
                 token = jwtToken
             });
-        }
+        } 
+
+
+
+
 
         [Authorize]
         [HttpGet("get-alluser")]

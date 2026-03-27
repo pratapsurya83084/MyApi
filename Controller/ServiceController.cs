@@ -289,14 +289,14 @@ namespace MyApi.Controllers
             // check role
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            if (role != "Admin")
-            {
-                return Ok(new
-                {
-                    message = "Unauthorized Access, Please Login as Admin",
-                    success = false
-                });
-            }
+            // if (role != "Admin")
+            // {
+            //     return Ok(new
+            //     {
+            //         message = "Unauthorized Access, Please Login as Admin",
+            //         success = false
+            //     });
+            // }
 
             var service = await _context.Services.FirstOrDefaultAsync(s => s.Id == id);
 
