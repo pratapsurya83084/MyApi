@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MyApi.Data;
 using MyApi.DTOs;
 using MyApi.Models;
+using Razorpay.Api;
 using System.Security.Claims;
 
 
@@ -25,6 +26,65 @@ namespace MyApi.Controllers
 
         }
 
+        // [Authorize]
+        // [HttpPost("add-booking")]
+        // public async Task<IActionResult> AddBooking([FromBody] BookingDto dto)
+        // {
+        //     if (!ModelState.IsValid)
+        //     {
+        //         return BadRequest(new
+        //         {
+        //             message = "Invalid data",
+        //             success = false
+        //         });
+        //     }
+
+        //     var userId = User.FindFirst("userId")?.Value;
+        //     var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+        //     // Allow only Farmer
+        //     if (role != "Farmer")
+        //     {
+        //         return Ok(new
+        //         {
+        //             message = "Only Farmer can create booking",
+        //             success = false
+        //         });
+        //     }
+
+        //     if (string.IsNullOrEmpty(userId))
+        //     {
+        //         return Unauthorized(new
+        //         {
+        //             message = "Invalid token",
+        //             success = false
+        //         });
+        //     }
+
+        //     var booking = new Models.Booking
+        //     {
+        //         ServiceId = dto.ServiceId,
+        //         CustomerId = Convert.ToInt32(userId),   // from token
+        //         BookingDate = DateTime.UtcNow,
+        //         Status = Models.BookingStatus.Pending,
+        //         Address = dto.Address,
+        //         Notes = dto.Notes
+        //     };
+
+        //     await _context.Bookings.AddAsync(booking);
+        //     await _context.SaveChangesAsync();
+
+        //     return Ok(new
+        //     {
+        //         message = "Booking created successfully",
+        //         success = true,
+        //         data = booking
+        //     });
+        // }
+
+
+
+
         [Authorize]
         [HttpPost("add-booking")]
         public async Task<IActionResult> AddBooking([FromBody] BookingDto dto)
@@ -41,7 +101,6 @@ namespace MyApi.Controllers
             var userId = User.FindFirst("userId")?.Value;
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            // Allow only Farmer
             if (role != "Farmer")
             {
                 return Ok(new
@@ -51,37 +110,146 @@ namespace MyApi.Controllers
                 });
             }
 
-            if (string.IsNullOrEmpty(userId))
+
+            if (!int.TryParse(userId, out int customerId))
             {
                 return Unauthorized(new
                 {
-                    message = "Invalid token",
+                    message = "Invalid userId in token",
                     success = false
                 });
             }
 
+            // Step 1: Get Service FIRST (better flow)
+            var service = await _context.Services.FindAsync(dto.ServiceId);
+
+            if (service == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Service not found",
+                    success = false
+                });
+            }
+
+
             var booking = new Models.Booking
             {
                 ServiceId = dto.ServiceId,
-                CustomerId = Convert.ToInt32(userId),   // from token
+                CustomerId = customerId,
                 BookingDate = DateTime.UtcNow,
                 Status = Models.BookingStatus.Pending,
                 Address = dto.Address,
-                Notes = dto.Notes
+                Notes = dto.Notes,
+
+                PaymentStatus = "Pending",
+                RazorpayOrderId = null,
+                RazorpayPaymentId = null
             };
 
             await _context.Bookings.AddAsync(booking);
             await _context.SaveChangesAsync();
 
+            //  Create Razorpay Order/
+            try
+            {
+                var key = _config["Razorpay:Key"];
+                var secret = _config["Razorpay:Secret"];
+
+                RazorpayClient client = new RazorpayClient(key, secret);
+
+                var options = new Dictionary<string, object>
+        {
+            { "amount", (int)(service.Price * 100) }, // 💰 paise
+            { "currency", "INR" },
+            { "receipt", "booking_" + booking.Id }
+        };
+
+                Order order = client.Order.Create(options);
+
+                //Save Razorpay Order ID
+                booking.RazorpayOrderId = order["id"].ToString();
+                // booking.PaymentStatus ="Complete";
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Booking created & payment initiated",
+                    success = true,
+
+                    booking = booking,
+
+                    payment = new
+                    {
+                        order_id = order["id"].ToString(),
+                        amount = order["amount"],
+                        currency = order["currency"],
+                        key = key
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Booking created but payment failed",
+                    error = ex.Message,
+                    success = false
+                });
+            }
+        }
+
+
+        [Authorize]
+        [HttpPost("payment-complete")]
+        public async Task<IActionResult> PaymentComplete([FromBody] PaymentCompleteDto dto)
+        {
+            if (dto == null || dto.BookingId <= 0 || string.IsNullOrEmpty(dto.RazorpayPaymentId))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Invalid payment data"
+                });
+            }
+
+            // Find booking
+            var booking = await _context.Bookings
+                .FirstOrDefaultAsync(b => b.Id == dto.BookingId);
+
+            if (booking == null)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Booking not found"
+                });
+            }
+
+            // Update payment details
+            booking.RazorpayPaymentId = dto.RazorpayPaymentId;
+            booking.PaymentStatus = "Complete";
+
+            await _context.SaveChangesAsync();
+
             return Ok(new
             {
-                message = "Booking created successfully",
                 success = true,
+                message = "Payment updated successfully",
                 data = booking
             });
         }
 
-        //farmer can view booked services  - userid get  and check in Booking table CustomerId filed compare with userId and return those rows
+
+
+
+
+        // farmer can view booked services  - userid get  and check in Booking table CustomerId filed compare with userId and return those rows
+
+
+
+
         [Authorize]
         [HttpGet("farmer-bookings")]
         public async Task<IActionResult> GetFarmerBookings()
@@ -423,8 +591,8 @@ namespace MyApi.Controllers
                 data = booking
             });
         }
-   
-   
+
+
     }
 }
 

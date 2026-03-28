@@ -30,6 +30,10 @@ namespace MyApi.Models
         [Required]
         public BookingStatus Status { get; set; } = BookingStatus.Pending;
 
+      public string? RazorpayOrderId { get; set; }
+public string? RazorpayPaymentId { get; set; }
+public string? PaymentStatus { get; set; }
+
         [Required]
         [MaxLength(250)]
         public string Address { get; set; } = null!;

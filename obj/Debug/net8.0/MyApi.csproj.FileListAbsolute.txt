@@ -113,3 +113,6 @@ C:\Users\prata\OneDrive\dotnet_project\MyApi\obj\Debug\net8.0\refint\MyApi.dll
 C:\Users\prata\OneDrive\dotnet_project\MyApi\obj\Debug\net8.0\MyApi.pdb
 C:\Users\prata\OneDrive\dotnet_project\MyApi\obj\Debug\net8.0\MyApi.genruntimeconfig.cache
 C:\Users\prata\OneDrive\dotnet_project\MyApi\obj\Debug\net8.0\ref\MyApi.dll
+C:\Users\prata\OneDrive\dotnet_project\MyApi\bin\Debug\net8.0\Newtonsoft.Json.dll
+C:\Users\prata\OneDrive\dotnet_project\MyApi\bin\Debug\net8.0\BouncyCastle.Crypto.dll
+C:\Users\prata\OneDrive\dotnet_project\MyApi\bin\Debug\net8.0\Razorpay.dll
