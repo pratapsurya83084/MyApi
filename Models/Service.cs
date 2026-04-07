@@ -38,8 +38,6 @@ namespace MyApi.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Optional navigation properties if you have Category and Provider models
-        // public Category Category { get; set; } = null!;
-        // public User Provider { get; set; } = null!;
+       
     }
 }

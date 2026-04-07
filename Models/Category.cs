@@ -19,8 +19,5 @@ namespace MyApi.Models
         public string? Description { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        // Optional: Navigation property if you want to link to Services
-        // public ICollection<Service> Services { get; set; } = new List<Service>();
     }
 }
